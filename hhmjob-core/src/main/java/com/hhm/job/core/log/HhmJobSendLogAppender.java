@@ -14,7 +14,7 @@ public class HhmJobSendLogAppender extends ConsoleAppender<ILoggingEvent> {
     private WebSocketClient webSocketClient;
     @Override
     protected void append(ILoggingEvent event) {
-        log.info(event.getThreadName());
+       // log.info(event.getThreadName());
         byte[] byteArray = this.encoder.encode(event);
         final String message = new String(byteArray);
 //        System.out.println("----------start-------------");

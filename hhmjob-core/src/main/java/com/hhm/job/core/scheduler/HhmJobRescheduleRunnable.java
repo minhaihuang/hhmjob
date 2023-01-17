@@ -67,10 +67,10 @@ public class HhmJobRescheduleRunnable extends DelegatingErrorHandlingRunnable im
     public void run() {
         // 把当前允许的线程名称设置进map
         if(!HhmJobThreadMessageCenter.getTaskAndThreadNameMap().containsKey(taskClass)){
-            log.info("thread {}", Thread.currentThread());
+            // log.info("thread {}", Thread.currentThread());
             HhmJobThreadMessageCenter.getTaskAndThreadNameMap().put(taskClass, Thread.currentThread().getName());
         }
-        log.info(JSON.toJSONString(HhmJobThreadMessageCenter.getTaskAndThreadNameMap()));
+        // log.info(JSON.toJSONString(HhmJobThreadMessageCenter.getTaskAndThreadNameMap()));
 
         Date actualExecutionTime = new Date(this.triggerContext.getClock().millis());
         super.run();

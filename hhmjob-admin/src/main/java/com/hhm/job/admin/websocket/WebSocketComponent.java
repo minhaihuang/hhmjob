@@ -14,6 +14,7 @@ import javax.websocket.OnOpen;
 import javax.websocket.Session;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,10 +28,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @ServerEndpoint(value = "/test/one") 前端通过此URI和后端交互，建立连接
  */
 @Slf4j
-@ServerEndpoint(value = "/test/one/{taskClass}")
+@ServerEndpoint(value = "/test/one/{taskClassMessage}")
 @Component
-public class OneWebSocketComponent {
-    // 已经建立连接的客户端。前端与admin的socket连接key格式 ${taskClass}-client, 任务节点与admin的socket连接key格式 ${taskClass}-node,
+public class WebSocketComponent {
+    // 已经建立连接的客户端。前端与admin的socket连接key格式 ${taskClass}-client_id, 任务节点与admin的socket连接key格式 ${taskClass}-node,
     private static Map<String, Session> sessionMap = new HashMap<>();
     private static Map<String, String> sessionAndTaskClassKeyMap = new HashMap<>();
     /**
@@ -42,25 +43,33 @@ public class OneWebSocketComponent {
      * 连接建立成功调用的方法
      */
     @OnOpen
-    public void onOpen(@PathParam("taskClass") String taskClass, Session session) {
-        String t = taskClass.split("_")[0];
-        sessionMap.put(t, session);
-        sessionAndTaskClassKeyMap.put(session.getId(), t);
-        onlineCount.incrementAndGet(); // 在线数加1
-        log.info("有新连接加入：{}，当前在线人数为：{}", session.getId(), onlineCount.get());
+    public void onOpen(@PathParam("taskClassMessage") String taskClassMessage, Session session) {
+        final String[] taskClassMessageSplit = taskClassMessage.split("_");
+        String clientKey = taskClassMessageSplit[0]; // ${taskClass}-client
 
-        // 建立任务中心和任务节点的链接
-        try {
-            int id = Integer.parseInt(taskClass.split("_")[1]);
-            final List<TaskRegisterMessageDto> taskList = HhmJobRegisteredTaskCenter.getTaskList(t.split("-")[0]);
-            final TaskRegisterMessageDto registerMessageDto = taskList.stream().filter(r -> r.getId() == id).findFirst().orElse(null);
-            if(registerMessageDto == null){
-                return;
+        String[] taskClassAndType = clientKey.split("-");
+        String taskClass = taskClassAndType[0];
+
+        sessionMap.put(clientKey, session);
+        sessionAndTaskClassKeyMap.put(session.getId(), clientKey);
+
+        onlineCount.incrementAndGet(); // 在线数加1
+        log.info("有新连接加入：{}，当前在线连接数为：{}", session.getId(), onlineCount.get());
+
+        // 建立任务中心和任务节点的链接，开始获取通过webSocket获取日志
+        if(taskClassMessageSplit.length > 1) {
+            try {
+                int id = Integer.parseInt(taskClassMessageSplit[1]);
+                final List<TaskRegisterMessageDto> taskList = HhmJobRegisteredTaskCenter.getTaskList(taskClass);
+                final TaskRegisterMessageDto registerMessageDto = taskList.stream().filter(r -> r.getId() == id).findFirst().orElse(null);
+                if(registerMessageDto == null){
+                    return;
+                }
+                String url = "http://" + registerMessageDto.getIp() + ":" + registerMessageDto.getPort() + "/hhmjob/startGetLog" + "?taskClass=" + registerMessageDto.getTaskClass();
+                OkHttpUtil.get(url);
+            }catch (Exception e){
+                log.error(e.getMessage(),e);
             }
-            String url = "http://" + registerMessageDto.getIp() + ":" + registerMessageDto.getPort() + "/hhmjob/startGetLog" + "?taskClass=" + registerMessageDto.getTaskClass();
-            OkHttpUtil.get(url);
-        }catch (Exception e){
-            log.error(e.getMessage(),e);
         }
 
     }
@@ -72,7 +81,19 @@ public class OneWebSocketComponent {
     public void onClose(Session session) {
         onlineCount.decrementAndGet(); // 在线数减1
 
-        log.info("有一连接关闭：{}，当前在线人数为：{}", session.getId(), onlineCount.get());
+        try {
+            // 获取对应的另外一个对应的session，将其关闭
+            String taskClassKey = sessionAndTaskClassKeyMap.get(session.getId());
+            String[] taskClassKeySplit = taskClassKey.split("-");
+            String taskClass = taskClassKeySplit[0];
+            String targetKey = taskClassKeySplit[1].equals("client") ? taskClass + "-node": taskClass + "-client";
+            Session sessionOther = sessionMap.get(targetKey);
+            sessionOther.close();
+        } catch (IOException e) {
+            log.error(e.getMessage(),e);
+        }
+
+        log.info("有一连接关闭：{}，当前在线连接数为：{}", session.getId(), onlineCount.get());
     }
 
     /**
@@ -90,7 +111,7 @@ public class OneWebSocketComponent {
         String clientKey = nodeKey.split("-")[0] + "-" + "client";
         Session clientSession = sessionMap.get(clientKey);
 
-        this.sendMessage("Hello, " + message, clientSession);
+        this.sendMessage(message, clientSession);
     }
 
     @OnError
