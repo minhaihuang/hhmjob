@@ -15,4 +15,6 @@ public class TaskRegisterMessageDto {
     private long lastHealCheckTime;
 
     private String nameSpace;
+
+    private int id = 0;
 }

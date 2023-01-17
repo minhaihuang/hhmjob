@@ -7,7 +7,6 @@ import com.hhm.job.admin.dto.OperateRemoteTaskDto;
 import com.hhm.job.admin.dto.TaskAdminDto;
 import com.hhm.job.admin.dto.TaskRegisterMessageDto;
 import com.hhm.job.admin.util.OkHttpUtil;
-import javafx.concurrent.Task;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

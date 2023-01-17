@@ -11,13 +11,14 @@ import java.util.Map;
  */
 public class HhmJobAdminTaskCenter {
     private final static Map<String, TaskAdminDto> taskDtoMap = new HashMap<>();
-
+    private static int id = 1;
     public static void addTaskAdmin(TaskAdminDto taskAdminDto){
         String key = taskAdminDto.getTaskClass() ;
 
         if (taskDtoMap.containsKey(key)) {
              throw new RuntimeException("已存在该任务");
         }
+        taskAdminDto.setId(id++);
         taskDtoMap.put(key, taskAdminDto);
     }
 

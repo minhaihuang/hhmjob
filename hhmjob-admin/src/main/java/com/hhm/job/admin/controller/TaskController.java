@@ -1,11 +1,11 @@
 package com.hhm.job.admin.controller;
 
-import com.alibaba.fastjson.JSON;
 import com.hhm.job.admin.dao.HhmJobAdminTaskCenter;
 import com.hhm.job.admin.dao.HhmJobRegisteredTaskCenter;
-import com.hhm.job.admin.dto.OperateRemoteTaskDto;
 import com.hhm.job.admin.dto.Response;
+import com.hhm.job.admin.dto.StartOrStopLogDto;
 import com.hhm.job.admin.dto.TaskAdminDto;
+import com.hhm.job.admin.dto.TaskAdminTreeVo;
 import com.hhm.job.admin.dto.TaskRegisterDto;
 import com.hhm.job.admin.dto.TaskRegisterMessageDto;
 import com.hhm.job.admin.util.OkHttpUtil;
@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 任务controller
@@ -33,17 +34,45 @@ import java.util.List;
 public class TaskController {
     // private final Map<String, TaskAdminDto> taskDtoMap = new HashMap<>();
 
+    @PostMapping("/startGetLog")
+    public Response<Boolean> startGetLog(@RequestBody StartOrStopLogDto startOrStopLogDto){
+        try {
+            String url = "http://" + startOrStopLogDto.getIp() + ":" + startOrStopLogDto.getPort() + "/hhmjob/startGetLog" + "?taskClass=" + startOrStopLogDto.getTaskClass();
+            OkHttpUtil.get(url);
+        }catch (Exception e){
+            log.error(e.getMessage(),e);
+        }
+        return ResponseUtil.success(true);
+    }
+
     @GetMapping("/list")
-    public Response<List<TaskAdminDto>> taskList(){
-        List<TaskAdminDto> taskList = new ArrayList<>();
+    public Response<List<TaskAdminTreeVo>> taskList(){
+
+        List<TaskAdminTreeVo> taskList = new ArrayList<>();
         HhmJobAdminTaskCenter.getTaskDtoMap().values().forEach(e -> {
-            TaskAdminDto taskAdminDto = new TaskAdminDto();
-            taskAdminDto.setTaskName(e.getTaskName());
-            taskAdminDto.setTaskClass(e.getTaskClass());
-            taskAdminDto.setCron(e.getCron());
-            taskAdminDto.setStatus(e.getStatus());
-            taskAdminDto.setTaskNum(e.getTaskNum());
-            taskList.add(taskAdminDto);
+            TaskAdminTreeVo taskAdminTreeVo = new TaskAdminTreeVo();
+            taskAdminTreeVo.setTaskName(e.getTaskName());
+            taskAdminTreeVo.setTaskClass(e.getTaskClass());
+            taskAdminTreeVo.setCron(e.getCron());
+            taskAdminTreeVo.setStatus(e.getStatus());
+            taskAdminTreeVo.setTaskNum(e.getTaskNum());
+            taskAdminTreeVo.setId(e.getId());
+
+            final List<TaskRegisterMessageDto> rList = Optional.ofNullable(HhmJobRegisteredTaskCenter.getTaskList(e.getTaskClass())).orElse(new ArrayList<>());
+            List<TaskAdminTreeVo> children = new ArrayList<>();
+            rList.forEach( r -> {
+                TaskAdminTreeVo t = new TaskAdminTreeVo();
+                t.setTaskName(r.getIp()+":" + r.getPort());
+                t.setTaskClass(r.getTaskClass());
+                t.setCron(taskAdminTreeVo.getCron());
+                t.setStatus(r.getStatus());
+                t.setIsChildren(true);
+                t.setId(r.getId());
+                children.add(t);
+            });
+            taskAdminTreeVo.setChildren(children);
+
+            taskList.add(taskAdminTreeVo);
         });
         return ResponseUtil.success(taskList);
     }
@@ -66,14 +95,6 @@ public class TaskController {
             taskRegisterMessageDto.setLastHealCheckTime(System.currentTimeMillis());
             HhmJobRegisteredTaskCenter.putRegisterTask(taskClass, taskRegisterMessageDto);
         }
-        // 测试方法开始
-//        TaskDto taskDto = new TaskDto();
-//        taskDto.setTaskClass("com.hhm.job.service.task.AutoStopTask");
-//        taskDto.setCron("*/3 * * * * ?");
-//        taskDto.setTaskName("test1");
-//
-//        addJob(taskDto);
-        // 测试方法结束
         return ResponseUtil.success("success");
     }
 
@@ -105,21 +126,6 @@ public class TaskController {
         final TaskAdminDto taskAdminDtoInMap = HhmJobAdminTaskCenter.getTaskDtoMap().get(taskAdminDto.getTaskClass());
         taskAdminDtoInMap.setStatus(taskAdminDtoInMap.getStatus() == 0? 1: 0);
 
-//        OperateRemoteTaskDto operateRemoteTaskDto = new OperateRemoteTaskDto();
-//        operateRemoteTaskDto.setTaskClass(taskAdminDtoInMap.getTaskClass());
-//        operateRemoteTaskDto.setCron(taskAdminDtoInMap.getCron());
-//        operateRemoteTaskDto.setStatus(taskAdminDtoInMap.getStatus());
-//
-//        try {
-//            TaskRegisterMessageDto taskRegisterMessageDto = taskList.get(0);
-//            String url = "http://" + taskRegisterMessageDto.getIp() + ":" + taskRegisterMessageDto.getPort() + "/hhmjob/operate";
-//            final String post = OkHttpUtil.post(url, JSON.toJSONString(operateRemoteTaskDto));
-//            taskRegisterMessageDto.setStatus(taskAdminDtoInMap.getStatus());
-//            log.info(post);
-//        }catch (Exception e){
-//            log.error(e.getMessage(),e);
-//            return ResponseUtil.fail(e.getMessage());
-//        }
         return ResponseUtil.success("success");
     }
 

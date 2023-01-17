@@ -1,5 +1,6 @@
 package com.hhm.job.admin.util;
 
+import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -11,6 +12,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -46,6 +48,46 @@ public final class OkHttpUtil {
                 .hostnameVerifier(SSLSocketClientUtil.getHostnameVerifier())
                 // maxIdleConnections：每个地址最大值空闲连接数
                 .connectionPool(new ConnectionPool(maxIdleConnection, keepAliveDuration, TimeUnit.MINUTES)).build();
+    }
+
+    /**
+     * 同步请求url
+     *
+     * @param url
+     * @return
+     * @throws IOException
+     */
+    public static String get(String url) throws IOException {
+        return get(url, null, null);
+    }
+
+    /**
+     * 同步请求url
+     *
+     * @param url
+     * @return
+     * @throws IOException
+     */
+    public static <T> T get(String url, Class<T> tClass) throws IOException {
+        return JSON.parseObject(get(url, null, null), tClass);
+    }
+
+    /**
+     * 同步请求URL
+     *
+     * @param url
+     * @param params 携带参数
+     * @return
+     * @throws IOException
+     */
+    public static String get(String url, Map<String, String> params, Map<String, String> headers) throws IOException {
+        if (StringUtils.isEmpty(url)) {
+            throw new RuntimeException("get请求url为空");
+        }
+        final Request request = createGetRequest(url, params, headers);
+
+        Response response = httpClient.newCall(request).execute();
+        return response.body() == null ? null : response.body().string();
     }
 
     /**
@@ -104,5 +146,65 @@ public final class OkHttpUtil {
                 .build();
         //log.info("url = {}, body = {}", url, body);
         httpClient.newCall(request).enqueue(callback);
+    }
+
+    /**
+     * 构造Get请求Request
+     *
+     * @param url
+     * @param params
+     * @return
+     */
+    private static Request createGetRequest(String url, Map<String, String> params, Map<String, String> headers) {
+
+        Request.Builder requestBuilder = new Request.Builder();
+
+        if (params != null && params.size() > 0) {
+            url = appendUrlParams(url, params);
+        }
+
+        if (headers != null && headers.size() > 0) {
+            headers.forEach(requestBuilder::addHeader);
+        }
+
+        return requestBuilder.get().url(url).build();
+    }
+
+    /**
+     * 构造Url携带参数
+     *
+     * @param url
+     * @param params
+     * @return
+     */
+    private static String appendUrlParams(String url, Map<String, String> params) {
+        if (params == null || params.size() == 0) {
+            return url;
+        }
+        String urlParams = getParamString(params);
+        if (url.contains("?")) {
+            url = url + "&" + urlParams;
+        } else {
+            url = url + "?" + urlParams;
+        }
+        return url;
+    }
+
+    /**
+     * 将参数转为路径字符串
+     *
+     * @param paramMap 参数
+     * @return
+     */
+    public static String getParamString(Map<String, String> paramMap) {
+        if (null == paramMap || paramMap.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (String key : paramMap.keySet()) {
+            builder.append("&")
+                    .append(key).append("=").append(paramMap.get(key));
+        }
+        return builder.deleteCharAt(0).toString();
     }
 }

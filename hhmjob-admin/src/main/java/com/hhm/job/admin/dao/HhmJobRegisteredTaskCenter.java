@@ -18,10 +18,10 @@ import java.util.Map;
 @Slf4j
 public class HhmJobRegisteredTaskCenter {
     private final static Map<String, List<TaskRegisterMessageDto>> registeredTaskMap = new HashMap<>();
-
     public static Map<String, List<TaskRegisterMessageDto>> getRegisteredTaskMap() {
         return registeredTaskMap;
     }
+    private static int id = 1;
 
     public static List<TaskRegisterMessageDto> getTaskList(String taskClass){
         return registeredTaskMap.get(taskClass);
@@ -30,6 +30,7 @@ public class HhmJobRegisteredTaskCenter {
     public static void putRegisterTask(String taskClass, TaskRegisterMessageDto r){
         registeredTaskMap.putIfAbsent(taskClass, new ArrayList<>());
         registeredTaskMap.get(taskClass).removeIf(t ->  t.getIp().equals(r.getIp()) && t.getPort() == r.getPort() && t.getTaskClass().equals(r.getTaskClass()));
+        r.setId(id++);
         registeredTaskMap.get(taskClass).add(r);
     }
 

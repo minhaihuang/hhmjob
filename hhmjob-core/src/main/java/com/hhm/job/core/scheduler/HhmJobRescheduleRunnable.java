@@ -1,8 +1,11 @@
 package com.hhm.job.core.scheduler;
 
+import com.alibaba.fastjson.JSON;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.Nullable;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.support.DelegatingErrorHandlingRunnable;
+import org.springframework.scheduling.support.ScheduledMethodRunnable;
 import org.springframework.scheduling.support.SimpleTriggerContext;
 import org.springframework.util.Assert;
 import org.springframework.util.ErrorHandler;
@@ -20,6 +23,7 @@ import java.util.concurrent.TimeoutException;
  * @Author huanghm
  * @Date 2022/5/24
  */
+@Slf4j
 public class HhmJobRescheduleRunnable extends DelegatingErrorHandlingRunnable implements ScheduledFuture<Object>{
     private Trigger trigger;
     private SimpleTriggerContext triggerContext;
@@ -28,34 +32,30 @@ public class HhmJobRescheduleRunnable extends DelegatingErrorHandlingRunnable im
     private ScheduledFuture<?> currentFuture;
     @Nullable
     private Date scheduledExecutionTime;
-    //private final Object triggerContextMonitor = new Object();
+    private final Object triggerContextMonitor = new Object();
+    private String taskClass;
 
     public HhmJobRescheduleRunnable(Runnable delegate, Trigger trigger, Clock clock, ScheduledExecutorService executor, ErrorHandler errorHandler) {
         super(delegate, errorHandler);
         this.trigger = trigger;
         this.triggerContext = new SimpleTriggerContext(clock);
         this.executor = executor;
+
+        ScheduledMethodRunnable runnable = (ScheduledMethodRunnable) delegate;
+        taskClass = runnable.getTarget().getClass().getName();
     }
 
     @Nullable
     public ScheduledFuture<?> schedule() {
-//        synchronized(this.triggerContextMonitor) {
-//            this.scheduledExecutionTime = this.trigger.nextExecutionTime(this.triggerContext);
-//            if (this.scheduledExecutionTime == null) {
-//                return null;
-//            } else {
-//                long initialDelay = this.scheduledExecutionTime.getTime() - this.triggerContext.getClock().millis();
-//                this.currentFuture = this.executor.schedule(this, initialDelay, TimeUnit.MILLISECONDS);
-//                return this;
-//            }
-//        }
-        this.scheduledExecutionTime = this.trigger.nextExecutionTime(this.triggerContext);
-        if (this.scheduledExecutionTime == null) {
-            return null;
-        } else {
-            long initialDelay = this.scheduledExecutionTime.getTime() - this.triggerContext.getClock().millis();
-            this.currentFuture = this.executor.schedule(this, initialDelay, TimeUnit.MILLISECONDS);
-            return this;
+        synchronized(this.triggerContextMonitor) {
+            this.scheduledExecutionTime = this.trigger.nextExecutionTime(this.triggerContext);
+            if (this.scheduledExecutionTime == null) {
+                return null;
+            } else {
+                long initialDelay = this.scheduledExecutionTime.getTime() - this.triggerContext.getClock().millis();
+                this.currentFuture = this.executor.schedule(this, initialDelay, TimeUnit.MILLISECONDS);
+                return this;
+            }
         }
     }
 
@@ -65,68 +65,66 @@ public class HhmJobRescheduleRunnable extends DelegatingErrorHandlingRunnable im
     }
 
     public void run() {
+        // 把当前允许的线程名称设置进map
+        if(!HhmJobThreadMessageCenter.getTaskAndThreadNameMap().containsKey(taskClass)){
+            log.info("thread {}", Thread.currentThread());
+            HhmJobThreadMessageCenter.getTaskAndThreadNameMap().put(taskClass, Thread.currentThread().getName());
+        }
+        log.info(JSON.toJSONString(HhmJobThreadMessageCenter.getTaskAndThreadNameMap()));
+
         Date actualExecutionTime = new Date(this.triggerContext.getClock().millis());
         super.run();
         Date completionTime = new Date(this.triggerContext.getClock().millis());
-//        synchronized(this.triggerContextMonitor) {
-//            Assert.state(this.scheduledExecutionTime != null, "No scheduled execution");
-//            this.triggerContext.update(this.scheduledExecutionTime, actualExecutionTime, completionTime);
-//            if (!this.obtainCurrentFuture().isCancelled()) {
-//                this.schedule();
-//            }
-//        }
-        Assert.state(this.scheduledExecutionTime != null, "No scheduled execution");
-        this.triggerContext.update(this.scheduledExecutionTime, actualExecutionTime, completionTime);
-        if (!this.obtainCurrentFuture().isCancelled()) {
-            this.schedule();
+        synchronized(this.triggerContextMonitor) {
+            Assert.state(this.scheduledExecutionTime != null, "No scheduled execution");
+            this.triggerContext.update(this.scheduledExecutionTime, actualExecutionTime, completionTime);
+            if (!this.obtainCurrentFuture().isCancelled()) {
+                this.schedule();
+            }
         }
     }
 
     public boolean cancel(boolean mayInterruptIfRunning) {
-//        synchronized(this.triggerContextMonitor) {
-//            return this.obtainCurrentFuture().cancel(mayInterruptIfRunning);
-//        }
-        return this.obtainCurrentFuture().cancel(mayInterruptIfRunning);
+        synchronized(this.triggerContextMonitor) {
+            // 移除任务线程执行信息
+            HhmJobThreadMessageCenter.getTaskAndThreadNameMap().remove(taskClass);
+            return this.obtainCurrentFuture().cancel(mayInterruptIfRunning);
+        }
     }
 
     public boolean isCancelled() {
-//        synchronized(this.triggerContextMonitor) {
-//            return this.obtainCurrentFuture().isCancelled();
-//        }
-        return this.obtainCurrentFuture().isCancelled();
+        synchronized(this.triggerContextMonitor) {
+            return this.obtainCurrentFuture().isCancelled();
+        }
     }
 
     public boolean isDone() {
-//        synchronized(this.triggerContextMonitor) {
-//            return this.obtainCurrentFuture().isDone();
-//        }
-        return this.obtainCurrentFuture().isDone();
+        synchronized(this.triggerContextMonitor) {
+            return this.obtainCurrentFuture().isDone();
+        }
     }
 
     public Object get() throws InterruptedException, ExecutionException {
         ScheduledFuture curr;
-//        synchronized(this.triggerContextMonitor) {
-//            curr = this.obtainCurrentFuture();
-//        }
-        curr = this.obtainCurrentFuture();
+        synchronized(this.triggerContextMonitor) {
+            curr = this.obtainCurrentFuture();
+        }
         return curr.get();
     }
 
     public Object get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
         ScheduledFuture curr;
-//        synchronized(this.triggerContextMonitor) {
-//            curr = this.obtainCurrentFuture();
-//        }
-        curr = this.obtainCurrentFuture();
+        synchronized(this.triggerContextMonitor) {
+            curr = this.obtainCurrentFuture();
+        }
         return curr.get(timeout, unit);
     }
 
     public long getDelay(TimeUnit unit) {
         ScheduledFuture curr;
-//        synchronized(this.triggerContextMonitor) {
-//            curr = this.obtainCurrentFuture();
-//        }
-        curr = this.obtainCurrentFuture();
+        synchronized(this.triggerContextMonitor) {
+            curr = this.obtainCurrentFuture();
+        }
         return curr.getDelay(unit);
     }
 

@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     public String test() {
+        log.info("user log");
+
         return "user test";
     }
 }

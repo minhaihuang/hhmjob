@@ -28,7 +28,6 @@ import java.util.concurrent.ThreadFactory;
  */
 public class HhmJobCustomTaskScheduler extends ThreadPoolTaskScheduler {
     private Map<Object, ScheduledFuture<?>> scheduledTasks = new IdentityHashMap<>();
-
     public HhmJobCustomTaskScheduler() {
         super();
         super.initialize();
@@ -37,8 +36,7 @@ public class HhmJobCustomTaskScheduler extends ThreadPoolTaskScheduler {
     @Override
     public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) {
 //        ScheduledFuture<?> future = super.schedule(task, trigger);
-
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1);
+        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1,new HhmJobThreadFactory());
         ScheduledFuture<?> future;
         try {
             Clock clock = Clock.systemDefaultZone();

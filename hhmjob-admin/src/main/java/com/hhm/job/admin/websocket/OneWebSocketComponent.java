@@ -1,5 +1,9 @@
-package com.hhm.job.admin.controller;
+package com.hhm.job.admin.websocket;
 
+import com.hhm.job.admin.dao.HhmJobRegisteredTaskCenter;
+import com.hhm.job.admin.dto.TaskRegisterMessageDto;
+import com.hhm.job.admin.util.OkHttpUtil;
+import com.hhm.job.admin.util.ResponseUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +15,7 @@ import javax.websocket.Session;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,9 +29,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 @ServerEndpoint(value = "/test/one/{taskClass}")
 @Component
-public class OneWebSocketController {
+public class OneWebSocketComponent {
+    // 已经建立连接的客户端。前端与admin的socket连接key格式 ${taskClass}-client, 任务节点与admin的socket连接key格式 ${taskClass}-node,
     private static Map<String, Session> sessionMap = new HashMap<>();
-
+    private static Map<String, String> sessionAndTaskClassKeyMap = new HashMap<>();
     /**
      * 记录当前在线连接数
      */
@@ -37,10 +43,26 @@ public class OneWebSocketController {
      */
     @OnOpen
     public void onOpen(@PathParam("taskClass") String taskClass, Session session) {
-        sessionMap.put(taskClass, session);
-        log.info(taskClass);
+        String t = taskClass.split("_")[0];
+        sessionMap.put(t, session);
+        sessionAndTaskClassKeyMap.put(session.getId(), t);
         onlineCount.incrementAndGet(); // 在线数加1
         log.info("有新连接加入：{}，当前在线人数为：{}", session.getId(), onlineCount.get());
+
+        // 建立任务中心和任务节点的链接
+        try {
+            int id = Integer.parseInt(taskClass.split("_")[1]);
+            final List<TaskRegisterMessageDto> taskList = HhmJobRegisteredTaskCenter.getTaskList(t.split("-")[0]);
+            final TaskRegisterMessageDto registerMessageDto = taskList.stream().filter(r -> r.getId() == id).findFirst().orElse(null);
+            if(registerMessageDto == null){
+                return;
+            }
+            String url = "http://" + registerMessageDto.getIp() + ":" + registerMessageDto.getPort() + "/hhmjob/startGetLog" + "?taskClass=" + registerMessageDto.getTaskClass();
+            OkHttpUtil.get(url);
+        }catch (Exception e){
+            log.error(e.getMessage(),e);
+        }
+
     }
 
     /**
@@ -49,6 +71,7 @@ public class OneWebSocketController {
     @OnClose
     public void onClose(Session session) {
         onlineCount.decrementAndGet(); // 在线数减1
+
         log.info("有一连接关闭：{}，当前在线人数为：{}", session.getId(), onlineCount.get());
     }
 
@@ -59,14 +82,21 @@ public class OneWebSocketController {
      */
     @OnMessage
     public void onMessage(String message, Session session) {
-        log.info("服务端收到客户端[{}]的消息:{}", session.getId(), message);
-        this.sendMessage("Hello, " + message, session);
+        log.info("服务端收到任务节点[{}]的消息:{}", session.getId(), message);
+        // this.sendMessage("Hello, " + message, session);
+
+        // 收到任务节点消息，将其发送到页面进行展示
+        final String nodeKey = sessionAndTaskClassKeyMap.get(session.getId());
+        String clientKey = nodeKey.split("-")[0] + "-" + "client";
+        Session clientSession = sessionMap.get(clientKey);
+
+        this.sendMessage("Hello, " + message, clientSession);
     }
 
     @OnError
     public void onError(Session session, Throwable error) {
         log.error("发生错误");
-        error.printStackTrace();
+        log.error(error.getMessage(),error);
     }
 
     /**
@@ -76,19 +106,6 @@ public class OneWebSocketController {
         try {
             log.info("服务端给客户端[{}]发送消息{}", toSession.getId(), message);
             toSession.getBasicRemote().sendText(message);
-        } catch (Exception e) {
-            log.error("服务端发送消息给客户端失败：{}", e);
-        }
-    }
-
-    public void sendMessage2(String key, String message) {
-        try {
-            Session session = sessionMap.get(key);
-            if(session == null){
-                return;
-            }
-            log.info("服务端给客户端[{}]发送消息{}", session.getId(), message);
-            session.getBasicRemote().sendText(message);
         } catch (Exception e) {
             log.error("服务端发送消息给客户端失败：{}", e);
         }

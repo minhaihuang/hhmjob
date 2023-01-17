@@ -1,21 +1,24 @@
 package com.hhm.job.core.controller;
 
 import com.hhm.job.core.dto.OperateTaskDto;
+import com.hhm.job.core.dto.Response;
 import com.hhm.job.core.dto.TargetAndSchedulerDto;
-import com.hhm.job.core.health.HhmJobHealthCheckComponent;
 import com.hhm.job.core.health.HhmJobTaskClassFactory;
+import com.hhm.job.core.log.HhmJobLogUtil;
 import com.hhm.job.core.scheduler.HhmJobCustomTaskScheduler;
+import com.hhm.job.core.util.ResponseUtil;
 import com.hhm.job.core.util.SpringBeanUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.scheduling.support.ScheduledMethodRunnable;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
@@ -28,8 +31,13 @@ import java.util.concurrent.ScheduledFuture;
 @RestController
 @RequestMapping("/hhmjob")
 public class HhmJobOperateJobController {
-    @Resource
-    private HhmJobHealthCheckComponent hhmJobHealthCheckComponent;
+
+    @GetMapping("/startGetLog")
+    public Response<Object> startGetLog(@RequestParam String taskClass){
+        HhmJobLogUtil.listenLogAndSendToAdmin(taskClass);
+        return ResponseUtil.success();
+    }
+
     @PostMapping("/operate")
     public String operate(@RequestBody OperateTaskDto operateTaskDto){
         final TargetAndSchedulerDto targetAndSchedulerDto = HhmJobTaskClassFactory.getTask(operateTaskDto.getTaskClass());
