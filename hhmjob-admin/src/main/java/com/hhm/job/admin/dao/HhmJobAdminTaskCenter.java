@@ -26,6 +26,11 @@ public class HhmJobAdminTaskCenter {
         String key = taskAdminDto.getTaskClass() ;
 
         final TaskAdminDto dto = taskDtoMap.get(key);
+
+        if (dto.getStatus() == 1 && !taskAdminDto.getCron().equals(dto.getCron())) {
+            throw new RuntimeException("任务运行中不允许修改corn");
+        }
+
         dto.setCron(taskAdminDto.getCron());
         dto.setTaskName(taskAdminDto.getTaskName());
         dto.setTaskNum(taskAdminDto.getTaskNum());

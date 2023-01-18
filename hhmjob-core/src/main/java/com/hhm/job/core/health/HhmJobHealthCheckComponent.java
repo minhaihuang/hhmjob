@@ -61,7 +61,7 @@ public class HhmJobHealthCheckComponent {
                     String url = registerUrl + "/health/check";
                     final String s = OkHttpUtil.post(url, JSON.toJSONString(healthCheckDto));
                     if ("pong".equals(s)) {
-                        log.info("健康检测成功");
+                        // log.info("健康检测成功");
                         now = System.currentTimeMillis();
                     }
                 } catch (Exception e) {

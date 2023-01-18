@@ -15,7 +15,7 @@ import javax.annotation.Resource;
 @Slf4j
 public class AutoStopTask2 extends HhmJobAbstractTask {
     @Resource
-    private UserService userService;
+    private UserService userService; // 一个类注入的例子
     private int count;
 
     @Override
