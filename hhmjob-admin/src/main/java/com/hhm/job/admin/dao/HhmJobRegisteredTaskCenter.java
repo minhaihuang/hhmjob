@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * 已经注册的任务-的任务中心
@@ -21,7 +22,6 @@ public class HhmJobRegisteredTaskCenter {
     public static Map<String, List<TaskRegisterMessageDto>> getRegisteredTaskMap() {
         return registeredTaskMap;
     }
-    private static int id = 1;
 
     public static List<TaskRegisterMessageDto> getTaskList(String taskClass){
         return registeredTaskMap.get(taskClass);
@@ -30,7 +30,7 @@ public class HhmJobRegisteredTaskCenter {
     public static void putRegisterTask(String taskClass, TaskRegisterMessageDto r){
         registeredTaskMap.putIfAbsent(taskClass, new ArrayList<>());
         registeredTaskMap.get(taskClass).removeIf(t ->  t.getIp().equals(r.getIp()) && t.getPort() == r.getPort() && t.getTaskClass().equals(r.getTaskClass()));
-        r.setId(id++);
+        r.setId(r.hashCode());
         registeredTaskMap.get(taskClass).add(r);
     }
 

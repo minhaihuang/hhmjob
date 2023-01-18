@@ -11,7 +11,7 @@ import java.util.List;
  */
 @Data
 public class TaskAdminTreeVo {
-    private int id;
+    private long id;
     private String taskName;
     private String taskClass;
     private String cron;

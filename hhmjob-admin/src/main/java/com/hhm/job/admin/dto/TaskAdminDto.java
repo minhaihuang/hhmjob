@@ -14,6 +14,6 @@ public class TaskAdminDto {
     private String cron;
     private int status = 0;
     private int taskNum;
-    private int id = 0;
+    private long id = 0;
 //    private String namespace;
 }

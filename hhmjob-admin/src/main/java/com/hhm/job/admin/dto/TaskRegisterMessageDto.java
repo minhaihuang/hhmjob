@@ -16,5 +16,5 @@ public class TaskRegisterMessageDto {
 
     private String nameSpace;
 
-    private int id = 0;
+    private long id = 0;
 }

@@ -13,9 +13,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class HhmJobAdminApplication {
     public static void main(String[] args) {
-        LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
-        SimpleSocketServer sss = new SimpleSocketServer(lc, 9999);  //该端口无法写入spring配置文件，因为启动加载顺序问题，可以添加到环境变量；
+//        LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+//        SimpleSocketServer sss = new SimpleSocketServer(lc, 9999);  //该端口无法写入spring配置文件，因为启动加载顺序问题，可以添加到环境变量；
         SpringApplication.run(HhmJobAdminApplication.class, args);
-        sss.start();
+//        sss.start();
     }
 }

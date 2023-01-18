@@ -3,7 +3,6 @@ package com.hhm.job.admin.websocket;
 import com.hhm.job.admin.dao.HhmJobRegisteredTaskCenter;
 import com.hhm.job.admin.dto.TaskRegisterMessageDto;
 import com.hhm.job.admin.util.OkHttpUtil;
-import com.hhm.job.admin.util.ResponseUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -59,7 +58,7 @@ public class WebSocketComponent {
         // 建立任务中心和任务节点的链接，开始获取通过webSocket获取日志
         if(taskClassMessageSplit.length > 1) {
             try {
-                int id = Integer.parseInt(taskClassMessageSplit[1]);
+                long id = Integer.parseInt(taskClassMessageSplit[1]);
                 final List<TaskRegisterMessageDto> taskList = HhmJobRegisteredTaskCenter.getTaskList(taskClass);
                 final TaskRegisterMessageDto registerMessageDto = taskList.stream().filter(r -> r.getId() == id).findFirst().orElse(null);
                 if(registerMessageDto == null){
@@ -88,7 +87,7 @@ public class WebSocketComponent {
             String taskClass = taskClassKeySplit[0];
             String targetKey = taskClassKeySplit[1].equals("client") ? taskClass + "-node": taskClass + "-client";
             Session sessionOther = sessionMap.get(targetKey);
-            sessionOther.close();
+            if (sessionOther !=  null) sessionOther.close();
         } catch (IOException e) {
             log.error(e.getMessage(),e);
         }
@@ -103,8 +102,7 @@ public class WebSocketComponent {
      */
     @OnMessage
     public void onMessage(String message, Session session) {
-        log.info("服务端收到任务节点[{}]的消息:{}", session.getId(), message);
-        // this.sendMessage("Hello, " + message, session);
+        // log.info("服务端收到任务节点[{}]的消息:{}", session.getId(), message);
 
         // 收到任务节点消息，将其发送到页面进行展示
         final String nodeKey = sessionAndTaskClassKeyMap.get(session.getId());
@@ -125,7 +123,7 @@ public class WebSocketComponent {
      */
     private void sendMessage(String message, Session toSession) {
         try {
-            log.info("服务端给客户端[{}]发送消息{}", toSession.getId(), message);
+            // log.info("服务端给客户端[{}]发送消息{}", toSession.getId(), message);
             toSession.getBasicRemote().sendText(message);
         } catch (Exception e) {
             log.error("服务端发送消息给客户端失败：{}", e);
