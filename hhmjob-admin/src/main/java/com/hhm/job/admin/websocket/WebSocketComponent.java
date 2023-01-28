@@ -61,7 +61,7 @@ public class WebSocketComponent {
                 long id = Integer.parseInt(taskClassMessageSplit[1]);
                 final List<TaskRegisterMessageDto> taskList = HhmJobRegisteredTaskCenter.getTaskList(taskClass);
                 final TaskRegisterMessageDto registerMessageDto = taskList.stream().filter(r -> r.getId() == id).findFirst().orElse(null);
-                if(registerMessageDto == null){
+                if(registerMessageDto == null || registerMessageDto.getStatus() == 0){
                     return;
                 }
                 String url = "http://" + registerMessageDto.getIp() + ":" + registerMessageDto.getPort() + "/hhmjob/startGetLog" + "?taskClass=" + registerMessageDto.getTaskClass();
@@ -83,11 +83,16 @@ public class WebSocketComponent {
         try {
             // 获取对应的另外一个对应的session，将其关闭
             String taskClassKey = sessionAndTaskClassKeyMap.get(session.getId());
+            sessionAndTaskClassKeyMap.remove(session.getId());
+
             String[] taskClassKeySplit = taskClassKey.split("-");
             String taskClass = taskClassKeySplit[0];
             String targetKey = taskClassKeySplit[1].equals("client") ? taskClass + "-node": taskClass + "-client";
+            String targetKey2 = !taskClassKeySplit[1].equals("client") ? taskClass + "-node": taskClass + "-client";
             Session sessionOther = sessionMap.get(targetKey);
             if (sessionOther !=  null) sessionOther.close();
+            sessionMap.remove(targetKey);
+            sessionMap.remove(targetKey2);
         } catch (IOException e) {
             log.error(e.getMessage(),e);
         }
